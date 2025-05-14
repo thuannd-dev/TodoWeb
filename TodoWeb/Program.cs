@@ -1,4 +1,6 @@
-﻿using Serilog;
+﻿using FluentValidation;
+using FluentValidation.AspNetCore;
+using Serilog;
 using TodoWeb.Application.ActionFilters;
 using TodoWeb.Application.Dtos.GuidModel;
 using TodoWeb.Application.MapperProfiles;
@@ -15,6 +17,7 @@ using TodoWeb.Application.Services.Grade;
 using TodoWeb.Application.Services.Questions;
 using TodoWeb.Application.Services.School;
 using TodoWeb.Application.Services.Students;
+using TodoWeb.Application.Services.Users;
 using TodoWeb.Infrastructures;
 //file program la file khi project build ra chay dau tien
 var builder = WebApplication.CreateBuilder(args);
@@ -25,6 +28,11 @@ builder.Services.AddControllers(option =>
 {
     option.Filters.Add<TestFilter>();
 });
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+builder.Services.AddFluentValidationAutoValidation();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -35,9 +43,10 @@ builder.Services.AddDbContext<IApplicationDbContext, ApplicationDbContext>();//r
 //
 
 //dbcontext có thể là transient nhưng không tối uuw 
-//dbcontext không thể là singleton vì nó sẽ giữ lại trạng thái của nó, nếu là singleton thì nó sẽ dùng xuyên suốt cả app, 
+//dbcontext không thể là singleton vì nó sẽ giữ lại trạng thái của các entity, nếu là singleton thì nó sẽ dùng xuyên suốt cả app, 
 //=> lưu rất nhiều state => rất nặng => không tối ưu
-//2. dbcontext là thread safe (không thể có 2 service truy cập cùng lúc) => không thể là singleton
+//thread safe là tức là nó có thể chạy đồng thời nhiều request mà không bị ảnh hưởng đến nhau,
+//2. dbcontext không là thread safe (không thể có 2 service truy cập cùng lúc) => không thể là singleton
 
 
 //dbcontext => dùng scoped, scoped là tối ưu nhất vì nó sẽ tạo ra một instance mới cho mỗi request, mỗi request sẽ có một dbcontext khác nhau => không bị ảnh hưởng đến nhau
@@ -55,16 +64,25 @@ builder.Services.AddScoped<IExamService, ExamService>();
 builder.Services.AddScoped<IExamQuestionService, ExamQuestionService>();
 builder.Services.AddScoped<IExamSubmissionDetailsService, ExamSubmissionDetailsService>();
 builder.Services.AddScoped<IExamSubbmissionService, ExamSubbmissionService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddAutoMapper(typeof(ToDoProfile));
 builder.Services.AddAutoMapper(typeof(ExamProfile));
 builder.Services.AddAutoMapper(typeof(ExamQuestionProfile));
 builder.Services.AddAutoMapper(typeof(ExamSubmissionProfile));
 builder.Services.AddAutoMapper(typeof(ExamSubmissionDetailsProfile));
+builder.Services.AddAutoMapper(typeof(UserProfile));
 builder.Services.AddSingleton<LogMiddleware>();
 builder.Services.AddSingleton<RateLimitMiddleware>();
 //builder.Services.AddSingleton<LogFilter>();
 builder.Services.AddSingleton<ICacheService, CacheService>();
 builder.Services.AddMemoryCache();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromSeconds(30);//sau 30s không có request nào thì session sẽ bị xóa
+    options.Cookie.HttpOnly = true;//không cho client truy cập vào cookie này
+    options.Cookie.IsEssential = true;
+});
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Warning()
     .WriteTo.File("C:\\Users\\DELL\\OneDrive\\Desktop\\Logs\\log.txt",
@@ -88,7 +106,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
-
+app.UseSession();
 
 app.MapControllers();
 

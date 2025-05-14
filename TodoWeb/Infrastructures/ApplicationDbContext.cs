@@ -26,6 +26,8 @@ namespace TodoWeb.Infrastructures
         public DbSet<ExamSubmission> ExamSubmissions { get; set; }
         public DbSet<ExamSubmissionDetail> ExamSubmissionDetails { get; set; }
 
+        public DbSet<User> Users { get; set; }
+
         public DbSet<ModifyLoggingInterceptor> CreateUpdateLoggingInterceptors;
         //constructer
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options){ 
@@ -74,6 +76,7 @@ namespace TodoWeb.Infrastructures
             modelBuilder.ApplyConfiguration(new ExamQuestionMapping());
             modelBuilder.ApplyConfiguration(new ExamSubmissionDetailMapping());
             modelBuilder.ApplyConfiguration(new ExamSubmissionMapping());
+            modelBuilder.ApplyConfiguration(new UserMapping());
             base.OnModelCreating(modelBuilder);
 
             
