@@ -14,6 +14,7 @@ namespace TodoWeb.Controllers
         {
             _userService = userService;
         }
+
         [HttpPost("Create")]
         public IActionResult Register(UserCreateViewModel user)
         {
@@ -24,6 +25,7 @@ namespace TodoWeb.Controllers
             return Ok(_userService.Post(user));
 
         }
+
         [HttpPost("Login")]
         public IActionResult Login(UserLoginViewModel loginViewModel)
         {

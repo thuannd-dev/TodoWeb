@@ -9,7 +9,7 @@ namespace TodoWeb.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [TypeFilter(typeof(AuthorizationFilter), Arguments = [$"{nameof(Role.Admin)},{nameof(Role.User)}"])]
+    [TypeFilter(typeof(AuthorizationFilter), Arguments = [new Role[] { Role.Admin, Role.User }])]
     public class SchoolController : Controller
     {
         private readonly ISchoolService _schoolService;
