@@ -1,5 +1,9 @@
 ﻿using FluentValidation;
 using FluentValidation.AspNetCore;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using Serilog;
 using TodoWeb.Application.ActionFilters;
 using TodoWeb.Application.Dtos.GuidModel;
@@ -18,7 +22,9 @@ using TodoWeb.Application.Services.Questions;
 using TodoWeb.Application.Services.School;
 using TodoWeb.Application.Services.Students;
 using TodoWeb.Application.Services.Users;
+using TodoWeb.Domains.AppsettingsConfigurations;
 using TodoWeb.Infrastructures;
+using TodoWeb.Infrastructures.Extensions;
 //file program la file khi project build ra chay dau tien
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +41,35 @@ builder.Services.AddFluentValidationAutoValidation();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(option =>
+{
+    option.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "ToDoApp",
+        Version = "v1",
+        Description = "ToDoApp API",
+    });
+
+    var securityScheme = new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Please enter a token",
+        Reference = new OpenApiReference
+        {
+            Type = ReferenceType.SecurityScheme,
+            Id = JwtBearerDefaults.AuthenticationScheme
+        }
+    };
+    option.AddSecurityDefinition("Bearer", securityScheme);
+    option.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        { securityScheme, new string[] { } }
+    });
+});
 builder.Services.AddDbContext<IApplicationDbContext, ApplicationDbContext>();//register dependencies injection, nó gồm có một interface hoặc abstract class, một class implement, 
 //và chúng ta register nó trong một DI collection
 //Khi app được start lên thì cái app sẽ đi collect-gom tất cả các dependencies injection đã được register vào trong cái DI Collection 
@@ -50,31 +84,32 @@ builder.Services.AddDbContext<IApplicationDbContext, ApplicationDbContext>();//r
 
 
 //dbcontext => dùng scoped, scoped là tối ưu nhất vì nó sẽ tạo ra một instance mới cho mỗi request, mỗi request sẽ có một dbcontext khác nhau => không bị ảnh hưởng đến nhau
-builder.Services.AddScoped<IToDoService, ToDoService>();
-builder.Services.AddTransient<IGuidGenerator, GuidGenerator>();
-builder.Services.AddSingleton<ISingletonGenerator, SingltonGenerator>();
-builder.Services.AddScoped<IStudentService, StudentService>();
-builder.Services.AddScoped<ISchoolService, SchoolService>();
-builder.Services.AddSingleton<GuidData>();
-builder.Services.AddScoped<ICourseService, CourseService>();
-builder.Services.AddScoped<IGradeService, GradeService>();
-builder.Services.AddScoped<ICourseStudentService, CourseStudentService>();
-builder.Services.AddScoped<IQuestionService, QuestionService>();
-builder.Services.AddScoped<IExamService, ExamService>();
-builder.Services.AddScoped<IExamQuestionService, ExamQuestionService>();
-builder.Services.AddScoped<IExamSubmissionDetailsService, ExamSubmissionDetailsService>();
-builder.Services.AddScoped<IExamSubbmissionService, ExamSubbmissionService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddAutoMapper(typeof(ToDoProfile));
-builder.Services.AddAutoMapper(typeof(ExamProfile));
-builder.Services.AddAutoMapper(typeof(ExamQuestionProfile));
-builder.Services.AddAutoMapper(typeof(ExamSubmissionProfile));
-builder.Services.AddAutoMapper(typeof(ExamSubmissionDetailsProfile));
-builder.Services.AddAutoMapper(typeof(UserProfile));
-builder.Services.AddSingleton<LogMiddleware>();
-builder.Services.AddSingleton<RateLimitMiddleware>();
-//builder.Services.AddSingleton<LogFilter>();
-builder.Services.AddSingleton<ICacheService, CacheService>();
+//builder.Services.AddScoped<IToDoService, ToDoService>();
+//builder.Services.AddTransient<IGuidGenerator, GuidGenerator>();
+//builder.Services.AddSingleton<ISingletonGenerator, SingltonGenerator>();
+//builder.Services.AddScoped<IStudentService, StudentService>();
+//builder.Services.AddScoped<ISchoolService, SchoolService>();
+//builder.Services.AddSingleton<GuidData>();
+//builder.Services.AddScoped<ICourseService, CourseService>();
+//builder.Services.AddScoped<IGradeService, GradeService>();
+//builder.Services.AddScoped<ICourseStudentService, CourseStudentService>();
+//builder.Services.AddScoped<IQuestionService, QuestionService>();
+//builder.Services.AddScoped<IExamService, ExamService>();
+//builder.Services.AddScoped<IExamQuestionService, ExamQuestionService>();
+//builder.Services.AddScoped<IExamSubmissionDetailsService, ExamSubmissionDetailsService>();
+//builder.Services.AddScoped<IExamSubbmissionService, ExamSubbmissionService>();
+//builder.Services.AddScoped<IUserService, UserService>();
+//builder.Services.AddAutoMapper(typeof(ToDoProfile));
+//builder.Services.AddAutoMapper(typeof(ExamProfile));
+//builder.Services.AddAutoMapper(typeof(ExamQuestionProfile));
+//builder.Services.AddAutoMapper(typeof(ExamSubmissionProfile));
+//builder.Services.AddAutoMapper(typeof(ExamSubmissionDetailsProfile));
+//builder.Services.AddAutoMapper(typeof(UserProfile));
+//builder.Services.AddSingleton<LogMiddleware>();
+//builder.Services.AddSingleton<RateLimitMiddleware>();
+////builder.Services.AddSingleton<LogFilter>();
+//builder.Services.AddSingleton<ICacheService, CacheService>();
+builder.Services.AddService();
 builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -83,6 +118,54 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;//không cho client truy cập vào cookie này
     options.Cookie.IsEssential = true;
 });
+
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+builder.Services.Configure<JwtSettings>(jwtSettings);
+//builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+//    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, option =>
+//    {
+//        option.Cookie.HttpOnly = true;//không cho js truy cập vào cookie này để tránh bị tấn công XSS
+//        option.ExpireTimeSpan = TimeSpan.FromSeconds(30);
+//        option.SlidingExpiration = true;//làm mới thời gian hết hạn của cookie khi request lại
+//        option.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+
+//        option.Events = new CookieAuthenticationEvents
+//        {
+//            //nếu ko authen đc
+//            OnRedirectToLogin = context =>
+//            {
+//                context.Response.StatusCode = 401;
+//                return Task.CompletedTask;
+//            },
+//            //nếu author ko đc
+//            OnRedirectToAccessDenied = context =>
+//            {
+//                context.Response.StatusCode = 403;
+//                return Task.CompletedTask;
+//            }
+//        };
+//    });
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ClockSkew = TimeSpan.Zero,//độ trễ cho phép giữa server và client là 0
+        IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtSettings["SecretKey"])),
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"]
+    };
+});
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Warning()
     .WriteTo.File("C:\\Users\\DELL\\OneDrive\\Desktop\\Logs\\log.txt",
@@ -104,10 +187,10 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseHttpsRedirection();
-
+//authen phải trước authorization vì đây là middleware xác thực người dùng
+app.UseAuthentication();
 app.UseAuthorization();
 app.UseSession();
-
 app.MapControllers();
 
 //10 request trong 30s

@@ -8,5 +8,7 @@ namespace TodoWeb.Application.Services.Users
         public int Post(UserCreateViewModel user);
         
         public User? UserLogin(UserLoginViewModel user);
+
+        string GenerateJwt(User user);
     }
 }

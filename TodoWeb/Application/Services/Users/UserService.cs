@@ -1,7 +1,13 @@
-﻿using AutoMapper;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using AutoMapper;
 using FluentValidation;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using TodoWeb.Application.Dtos.UserModel;
 using TodoWeb.Application.Helpers;
+using TodoWeb.Domains.AppsettingsConfigurations;
 using TodoWeb.Domains.Entities;
 using TodoWeb.Infrastructures;
 
@@ -12,12 +18,15 @@ namespace TodoWeb.Application.Services.Users
         private readonly IValidator<UserCreateViewModel> _validator;
         private readonly IApplicationDbContext _dbContext;
         private readonly IMapper _mapper;
-        public UserService(IValidator<UserCreateViewModel> validator, IApplicationDbContext dbContext, IMapper mapper)
+        private readonly JwtSettings _jwtSettings;
+        public UserService(IValidator<UserCreateViewModel> validator, IApplicationDbContext dbContext, IMapper mapper, IOptions<JwtSettings> jwtSettingOptions)
         {
             _validator = validator;
             _dbContext = dbContext;
             _mapper = mapper;
+            _jwtSettings = jwtSettingOptions.Value;
         }
+
         public int Post(UserCreateViewModel user)
         {
             //var data = new Domains.Entities.User
@@ -55,6 +64,31 @@ namespace TodoWeb.Application.Services.Users
                 return null;
             }
             return data;
+        }
+
+        public string GenerateJwt(User user)
+        {
+            
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Email, user.EmailAddress),
+                new Claim(ClaimTypes.Role, user.Role.ToString())
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
+
+            var token = new JwtSecurityToken(
+                issuer: _jwtSettings.Issuer,
+                audience: _jwtSettings.Audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationInMinutes),
+                signingCredentials: new SigningCredentials(
+                    key,
+                    SecurityAlgorithms.HmacSha256Signature
+                )
+            );
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

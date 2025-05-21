@@ -9,7 +9,8 @@ namespace TodoWeb.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [TypeFilter(typeof(AuthorizationFilter), Arguments = [new Role[] { Role.Admin, Role.User }])]
+    //[TypeFilter(typeof(AuthorizationFilter), Arguments = [new Role[] { Role.Admin, Role.User }])]
+    [Authorize(Roles = "User, Admin")]//atribute này ko phục vụ cho session
     public class SchoolController : Controller
     {
         private readonly ISchoolService _schoolService;
